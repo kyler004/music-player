@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import type { Song } from "../types";
 import { Controls } from "./Controls";
 import { ProgressBar } from "./ProgressBar";
 import { VolumeControl } from "./VolumeControl";
 import { Playlist } from "./Playlist";
+import { Heart } from "lucide-react";
 
 interface PlayerProps {
   songs: Song[]; // Array of songs to play
@@ -22,6 +23,7 @@ export const Player: React.FC<PlayerProps> = ({ songs }) => {
     isMuted,
     isShuffling,
     repeatMode,
+    favorites, // New
     togglePlay,
     handleNext,
     handlePrevious,
@@ -31,7 +33,63 @@ export const Player: React.FC<PlayerProps> = ({ songs }) => {
     toggleShuffle,
     toggleRepeat,
     selectSong,
+    toggleFavorite, // New
+    isFavorite, // New
   } = useAudioPlayer(songs);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault(); // Prevent scrolling
+          togglePlay();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          handleSeek(Math.min(currentTime + 5, duration));
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          handleSeek(Math.max(currentTime - 5, 0));
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          handleVolumeChange(Math.min(volume + 0.1, 1));
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          handleVolumeChange(Math.max(volume - 0.1, 0));
+          break;
+        case "KeyM":
+          toggleMute();
+          break;
+        case "KeyL": // Added bonus: Like toggle shortcut
+          toggleFavorite(currentSong.id);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    togglePlay, 
+    currentTime, 
+    duration, 
+    handleSeek, 
+    volume, 
+    handleVolumeChange, 
+    toggleMute, 
+    toggleFavorite, 
+    currentSong.id
+  ]);
+
+  const isCurrentFavorite = isFavorite(currentSong.id);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center p-4">
@@ -51,10 +109,21 @@ export const Player: React.FC<PlayerProps> = ({ songs }) => {
               <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
 
-            {/* Song Title */}
-            <h2 className="text-3xl font-bold text-white mb-2 text-center">
-              {currentSong.title}
-            </h2>
+            {/* Song Title & Favorites Button */}
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-3xl font-bold text-white text-center">
+                {currentSong.title}
+              </h2>
+              <button
+                onClick={() => toggleFavorite(currentSong.id)}
+                className={`transition-colors ${
+                  isCurrentFavorite ? "text-pink-500" : "text-white/30 hover:text-white/50"
+                }`}
+                aria-label="Toggle favorite"
+              >
+                <Heart size={24} fill={isCurrentFavorite ? "currentColor" : "none"} />
+              </button>
+            </div>
 
             {/* Artist Name */}
             <p className="text-lg text-purple-200">{currentSong.artist}</p>
@@ -98,6 +167,8 @@ export const Player: React.FC<PlayerProps> = ({ songs }) => {
             songs={songs}
             currentSongIndex={currentSongIndex}
             onSelectSong={selectSong}
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
           />
         </div>
 
